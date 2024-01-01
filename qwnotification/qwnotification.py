@@ -1,3 +1,4 @@
+# %%
 # -*- coding: utf-8 -*-
 import pandas as pd
 import pymssql 
@@ -5,7 +6,6 @@ import datetime
 from openpyxl import load_workbook
 from openpyxl.styles import Font
 from openpyxl.utils.dataframe import dataframe_to_rows
-from openpyxl.styles import Alignment
 
 def decode_columns(result, column_names):
     for column_name in column_names:
@@ -55,7 +55,7 @@ def write_df_to_excel(sheet, df, start_row, start_col, percent_columns=None):
             cell = sheet.cell(row=start_row + index, column=start_col + j, value=value)
             if percent_columns and (start_col + j - 1) in percent_columns:
                 cell.number_format = '0.0%'
-            cell.alignment = Alignment(horizontal='center', vertical='center')
+            # cell.alignment = Alignment(horizontal='center', vertical='center')
 
 # 定义计算比率的函数
 def calculate_rates(df):
@@ -69,7 +69,6 @@ def calculate_rates(df):
     df['消费老客企微添加率'].fillna(0, inplace=True)
 
     return df
-
 
 # 计算每个大区的整体比率
 def calculate_total_rates(group):
@@ -110,60 +109,64 @@ db_config = {
     'database': 'ChjBidb'
 }
 sql = f'''
-        SELECT 
-            a.大区,
-            a.小区,
-            a.门店代码,
-            a.门店名称,
-            a.[门店类型],
-            SUM(a.消费人数) AS 总消费人数,
-            SUM(a.消费会员企微添加数) AS 总消费会员企微添加数,
-            SUM(a.新会员消费人数) AS 总新会员消费人数,
-            SUM(a.新会员企微添加数) AS 总新会员企微添加数,
-            SUM(a.老会员消费人数) AS 总老会员消费人数,
-            SUM(a.老会员企微添加数) AS 总老会员企微添加数
-        FROM v_shop_dict s
-        LEFT JOIN (
-            SELECT 
-                c.大区,
-                c.小区,
-                c.[门店类型],
-                c.门店代码,
-                c.门店名称,
-                COUNT(DISTINCT c.会员号) AS 消费人数,
-                COUNT(DISTINCT CASE WHEN m.注册时间 BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59' THEN c.会员号 ELSE NULL END) AS 新会员消费人数,
-                COUNT(DISTINCT CASE WHEN m.注册时间 < '{start_date}' THEN c.会员号 ELSE NULL END) AS 老会员消费人数,
-                COUNT(DISTINCT q.unionId) AS 消费会员企微添加数,
-                COUNT(DISTINCT CASE WHEN m.注册时间 BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59' THEN q.unionId ELSE NULL END) AS 新会员企微添加数,
-                COUNT(DISTINCT CASE WHEN m.注册时间 < '{start_date}' THEN q.unionId ELSE NULL END) AS 老会员企微添加数
-            FROM bi_business_member AS m 
-            JOIN bi_business_consume AS c ON m.会员号 = c.会员号 
-            JOIN v_btgoods AS g ON g.商品代码 = c.商品代码 
-            LEFT JOIN (SELECT DISTINCT 企微unionId AS unionId FROM BI_Business_qywechatmember_all WHERE 企微添加时间 <= '{end_date}'+' 23:59:59') q ON m.微信unionId = q.unionId
-            WHERE c.来源 IN ('智慧云店','智能中台','中台') 
-                AND c.消费时间 BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59' 
-                AND g.二级大类 NOT IN ('其他','促销物料') 
-                AND c.金额 > 0 
-                AND c.商品代码 NOT IN ('SHG30000905','Q3G30000105','QQG30000091','QQG30000090','SHG30000943','SHG30001192') 
-                AND m.是否在云店上激活 = '是'
-            GROUP BY c.大区, c.小区, c.[门店类型], c.门店代码, c.门店名称
-        ) as a ON a.门店代码 = s.门店代码 
-        LEFT JOIN (
-            SELECT ltrim(rtrim(t.firstShopCode)) as 门店代码, count(distinct t.mobile) as 门店吸粉数
-            FROM v_mall_member t
-            WHERE t.date_add BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59'
-                AND t.firstguideno NOT IN ('84e67d1115c859c336','2f7e946583048a96fe')  
-            GROUP BY ltrim(rtrim(t.firstShopCode))
-        ) as b ON s.门店代码 = b.门店代码
-        WHERE (a.门店代码 IS NOT NULL OR b.门店代码 IS NOT NULL) and 大区 is not null and 大区 != '营销管理部'
-        GROUP BY a.大区, a.小区, a.门店名称, a.[门店类型], a.门店代码
+SELECT 
+		distinct 
+		a.大区名称 as 大区,
+		a.小区名称 as 小区,
+		a.门店代码,
+		a.门店名称,
+		a.[门店类型],
+		SUM(a.消费人数) AS 总消费人数,
+		SUM(a.消费会员企微添加数) AS 总消费会员企微添加数,
+		SUM(a.新会员消费人数) AS 总新会员消费人数,
+		SUM(a.新会员企微添加数) AS 总新会员企微添加数,
+		SUM(a.老会员消费人数) AS 总老会员消费人数,
+		SUM(a.老会员企微添加数) AS 总老会员企微添加数
+FROM v_shop_dict s
+LEFT JOIN (
+		SELECT 
+				distinct
+				s.大区名称,
+				s.小区名称,
+				case when s.[门店类型] = '代理店' then '代理' else '自营' end as 门店类型,
+				s.门店代码,
+				s.门店名称,
+				COUNT(DISTINCT c.会员号) AS 消费人数,
+				COUNT(DISTINCT CASE WHEN m.注册时间 BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59' THEN c.会员号 ELSE NULL END) AS 新会员消费人数,
+				COUNT(DISTINCT CASE WHEN m.注册时间 < '{start_date}' THEN c.会员号 ELSE NULL END) AS 老会员消费人数,
+				COUNT(DISTINCT q.unionId) AS 消费会员企微添加数,
+				COUNT(DISTINCT CASE WHEN m.注册时间 BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59' THEN q.unionId ELSE NULL END) AS 新会员企微添加数,
+				COUNT(DISTINCT CASE WHEN m.注册时间 < '{start_date}' THEN q.unionId ELSE NULL END) AS 老会员企微添加数
+		FROM bi_business_member AS m 
+		JOIN v_shop_dict as s on s.门店代码 = m.服务门店
+		JOIN bi_business_consume AS c ON m.会员号 = c.会员号 
+		JOIN v_btgoods AS g ON g.商品代码 = c.商品代码 
+		LEFT JOIN (SELECT DISTINCT 企微unionId AS unionId FROM BI_Business_qywechatmember_all WHERE 企微添加时间 <= '{end_date}'+' 23:59:59') q ON m.微信unionId = q.unionId
+		WHERE c.来源 IN ('智慧云店','智能中台','中台') 
+				AND c.消费时间 BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59' 
+				AND g.二级大类 NOT IN ('其他','促销物料') 
+				AND c.金额 > 0 
+				AND c.商品代码 NOT IN ('SHG30000905','Q3G30000105','QQG30000091','QQG30000090','SHG30000943','SHG30001192') 
+				AND m.是否在云店上激活 = '是'
+		GROUP BY s.大区名称, s.小区名称, case when s.[门店类型] = '代理店' then '代理' else '自营' end, s.门店代码, s.门店名称
+) as a ON a.门店代码 = s.门店代码 
+LEFT JOIN (
+		SELECT distinct ltrim(rtrim(t.firstShopCode)) as 门店代码, count(distinct t.mobile) as 门店吸粉数
+		FROM v_mall_member t
+		WHERE t.date_add BETWEEN '{start_date}' AND '{end_date}'+' 23:59:59'
+				AND t.firstguideno NOT IN ('84e67d1115c859c336','2f7e946583048a96fe')  
+		GROUP BY ltrim(rtrim(t.firstShopCode))
+) as b ON s.门店代码 = b.门店代码
+WHERE (a.门店代码 IS NOT NULL OR b.门店代码 IS NOT NULL) and a.大区名称 is not null and a.大区名称 != '营销管理部'
+GROUP BY a.大区名称, a.小区名称, a.门店名称, a.[门店类型], a.门店代码
 '''
 task_details = [
-    {"task_name": "消费7天", "decode_columns_list": ["大区","小区","门店名称","门店类型","门店代码"]}
+    {"task_name": "消费7天", "decode_columns_list": ["门店类型"]}
 ]
 with get_db_connection(db_config) as conn:
     for task in task_details:
         result = execute_query_and_process_data(conn, sql, task["decode_columns_list"])
+        # result['门店类型'] = result['门店类型'].apply(lambda x: '自营店' if x != '代理店' else x)
 
 # %% [markdown]
 # ## 门店明细
@@ -309,9 +312,11 @@ grouped2 = grouped2.sort_values(by=('整体', '消费会员企微添加率'), as
 result2  =calculate_rates(result)
 # 按门店名称和门店类型分组，计算平均值
 grouped4 = result2.groupby(['门店名称', '门店类型']).agg({'消费会员企微添加率': 'mean', '消费新客企微添加率': 'mean', '消费老客企微添加率': 'mean'}).unstack(fill_value=0)
+grouped4
 total_rates = result2.groupby('门店名称').apply(calculate_total_store_rates)
 # 将整体比率添加到grouped4中，并保持列的多级索引结构
 grouped4 = pd.concat([grouped4, total_rates], axis=1)
+grouped4
 # 重新排列列，确保使用正确的多级索引格式
 columns_order = [
     ('整体', '消费会员企微添加率'),
@@ -333,7 +338,7 @@ grouped4.reset_index(inplace=True)
 
 # %%
 # 加载现有的 Excel 文件
-file_path = r'./企微添加率监控测试1.0.xlsx'
+file_path = r'D:\企微添加率监控测试1.0.xlsx'
 book = load_workbook(file_path)
 # 大区统计表
 sheet1 = book['大区情况'] 
@@ -353,5 +358,8 @@ write_df_to_excel(sheet4, sorted_result, start_row=2, start_col=1, percent_colum
 # 保存更改
 book.save(file_path)
 print('写入成功')
+
+# %%
+
 
 

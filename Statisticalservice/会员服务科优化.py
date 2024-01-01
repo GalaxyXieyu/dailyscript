@@ -504,6 +504,7 @@ total_coupons = df['兑换总张数'].sum()
 # 计算每种券的兑换率
 df['兑换率'] = df['兑换总张数'] / total_coupons
 # 计算每种券的使用率
+df['使用率'] = df['使用情况_总计'] / df['兑换总张数'].replace(0, np.nan)
 df['使用率'] = np.where(df['兑换总张数'] != 0, df['使用情况_总计'] / df['兑换总张数'], 0)
 # 计算每种券的转化率
 df['转化人数_总计'] = df['转化人数_总计'].apply(lambda x: float(x))
@@ -656,7 +657,7 @@ from openpyxl import load_workbook
 # 假设你的 DataFrame 名称为 result2
 # result2 = pd.DataFrame(...)
 # 加载现有的 Excel 文件
-file_path = r'.\消费7天后回访触达情况.xlsx'
+file_path = r'D:\code\CHJ\dailyscript\Statisticalservice\消费7天后回访触达情况.xlsx'
 book = load_workbook(file_path)
 
 # 选择要将数据写入的工作表
