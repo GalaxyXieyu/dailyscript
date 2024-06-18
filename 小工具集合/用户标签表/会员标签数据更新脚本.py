@@ -183,3 +183,6 @@ for i, (_, row) in enumerate(df.iterrows(), start=1):
     ws.cell(row=i + 1, column=max_column + 1, value=row[today])
 # 保存用户画像表
 wb.save(r'\\192.168.0.88\潮宏基集团\潮宏基珠宝\品牌管理中心\CRM管理部\客户服务\85 临时数据看板\用户标签表.xlsx')
+
+# 李欣真可爱
+print("李欣真可爱")
